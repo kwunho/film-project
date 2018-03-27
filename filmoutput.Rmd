@@ -1,0 +1,409 @@
+---
+title: "filmoutput"
+output: html_document
+---
+
+Glm formula
+
+```{r}
+form1=as.formula(paste("log(Opening.weekend)~",paste(names(Film1)[c(2,6,7,8,9,10,11,12,22)],collapse = "+")))
+
+```
+
+Due to 5 sperate imputations of the missing values
+there were 5 scripts that ran all of the results each with it's own data frame
+
+```{r}
+Film1$MetaT<-logit(Film1$Meta/100)
+Film1$ImdbT<-logit(Film1$Imdb/10)
+
+Film2$MetaT<-logit(Film2$Meta/100)
+Film2$ImdbT<-logit(Film2$Imdb/10)
+
+Film3$MetaT<-logit(Film3$Meta/100)
+Film3$ImdbT<-logit(Film3$Imdb/10)
+
+Film4$MetaT<-logit(Film4$Meta/100)
+Film4$ImdbT<-logit(Film4$Imdb/10)
+
+Film5$MetaT<-logit(Film5$Meta/100)
+Film5$ImdbT<-logit(Film5$Imdb/10)
+```
+
+Fitting GLMs
+
+```{r}
+lm1=glm(form1,gaussian,Film1)
+lm1.s=step(lm1)
+summary(lm1.s)
+
+```
+
+```{r}
+lm2=glm(form1,gaussian,Film2)
+lm2.s=step(lm2)
+summary(lm2.s)
+
+```
+
+```{r}
+lm3=glm(form1,gaussian,Film3)
+lm3.s=step(lm3)
+summary(lm3.s)
+
+```
+
+```{r}
+lm4=glm(form1,gaussian,Film4)
+lm4.s=step(lm4)
+summary(lm4.s)
+
+```
+
+```{r}
+lm5=glm(form1,gaussian,Film5)
+lm5.s=step(lm5)
+summary(lm5.s)
+
+```
+
+Finding Min and Max of Coefficients
+
+```{r}
+x=rep(0,24)
+ma=rep(0,24)
+mi=rep(0,24)
+for (i in 1:24)
+{
+  ma[i]=max(c(lm1.s$coefficients[i],lm2.s$coefficients[i],lm3.s$coefficients[i],lm4.s$coefficients[i],lm5.s$coefficients[i]))
+  
+  mi[i]=min(c(lm1.s$coefficients[i],lm2.s$coefficients[i],lm3.s$coefficients[i],lm4.s$coefficients[i],lm5.s$coefficients[i]))
+  
+  x[i]=200*(ma[i]-mi[i])/(ma[i]+mi[i])
+}
+
+```
+
+
+Confidence Interval plot
+```{r}
+library(GGally)
+library(broom)
+ggcoef(lm1.s,conf.level = 0.95,exclude_intercept = T,mapping = aes(x=estimate,y=term,size=p.value),vline_color = "red",errorbar_color = "blue",vline_linetype = "solid",errorbar_height = 0.5)+ggtitle("95% Confindence Interval Plot of Coefficient Estimates")
+```
+
+
+```{r}
+lm2=glm(form2pg,gaussian,Film1,subset=-912)
+lm2.s.2=step(lm2)
+summary(lm2.s.2)
+
+ggcoef(lm2.s.2,conf.level = 0.95,exclude_intercept = T,mapping = aes(x=estimate,y=term,size=p.value),vline_color = "red",errorbar_color = "blue",vline_linetype = "solid",errorbar_height = 0.5)+ggtitle("95% Confindence Interval Plot of Coefficient Estimates")
+
+
+```
+
+
+```{r}
+cv.glm(Film1,lm1.s,K=10)$delta
+cv.glm(Film1[-912,],lm2.s.2,K=10)$delta
+```
+
+
+
+
+
+
+```{r}
+ggplot(augment(lm1.s),aes(x=.fitted,y=.std.resid))+geom_point(aes(col=Seq.Ori))+geom_hline(yintercept = c(qnorm(0.025),qnorm(0.975)))
+```
+
+```{r}
+#library(ggfortify)
+autoplot(lm1.s,1,colour = "Seq.Ori")
+autoplot(lm1.s,2)
+autoplot(lm1.s,3,colour = "NumOpenTheatres")
+```
+
+```{r}
+autoplot(lm2.s.2,1,colour = "Budget")
+autoplot(lm2.s.2,2)
+```
+
+
+```{r}
+autoplot(lm3.s,1)
+autoplot(lm4.s.2,1)
+autoplot(lm4.s.2,2)
+```
+
+
+
+```{r}
+gg=ggplot(Film1)
+gg+geom_point(aes(x=Imdb,y=Meta))+geom_smooth(aes(x=Imdb,y=Meta),method="loess",se=FALSE,col="blue") + scale_fill_gradient("Imdbvotes",low="green",high="red")
+```
+
+```{r}
+gg+geom_histogram(aes(Opening.weekend,fill=..count..),col="black")+scale_fill_gradient("Count",low = "red",high="green")+xlab("Opening Weekend Gross")
+
+gg+geom_histogram(aes(log(Opening.weekend),fill=..count..),col="black")+scale_fill_gradient("Count",low = "red",high="green")+xlab("Log Transformationn of Opening Weekend Gross")
+
+gg+geom_histogram(aes(postopengross,fill=..count..),col="black")+scale_fill_gradient("Count",low = "red",high="green")+xlab("Total Gross after the Opening Weekend")
+
+gg+geom_histogram(aes(log(postopengross),fill=..count..),col="black")+scale_fill_gradient("Count",low = "red",high="green")+xlab("Log Transformation of Total Gross after the Opening Weekend")
+```
+
+
+
+```{r}
+
+Filmg<-Film1[-912,]
+Filmg$pred=predict(lm4.s.2)
+Filmg$Prediction=cut(Filmg$pred,c(0,19.5,23))
+gf=ggplot(Filmg)
+```
+
+```{r}
+gf+geom_density(aes(Opening.weekend,fill=Prediction),alpha=.3)+xlab("Opening Weekend")
+```
+
+
+
+
+
+```{r}
+#gplot2+geom_bar(aes(x= Genre,fill=Rating ),position="fill")+theme(legend.position = "bottom")
+
+
+
+gplot2+geom_point(aes(x=Budget,y=Opening.weekend,color=NumOpenTheatres,shape=Seq.Ori))+ylab("Opening Weekend Gross")+labs(color="Theatres",shape="Sequel Indicator")+scale_color_gradient(low="orange",high = "blue")+scale_shape(solid=F)
+
+
+
+gplot2+geom_boxplot(aes(x=Genre,y=Budget,color=Seq.Ori))+theme(legend.position = "bottom",axis.text.x = element_text(angle=90,hjust=1))+ylab("Budget")+labs(color="Sequel Indicator")
+
+
+gplot2+geom_violin(scale="width",aes(x=Studio, y=Opening.weekend),draw_quantiles = c(0.25,0.5,0.75))+theme(legend.position = "bottom",axis.text.x = element_text(angle=90,hjust=1))+xlab("Studio")+ylab("Opening Weekend Gross")+geom_jitter(aes(x=Studio, y=Opening.weekend,color=Meta ),shape=16,size=1)+labs(color="Metacritic")+scale_color_gradient(low="red",high = "green")
+
+#total
+
+
+gplot2+geom_point(aes(y=postopengross,x=Opening.weekend,color=NumTotalTheatres))+ylab("Total Gross after the Opening Weekend")+xlab("Opening Weekend Gross")+scale_color_gradient(low="orange",high = "blue")+labs(color="Theatres")
+
+
+
+
+gplot2+geom_violin(scale="width",aes(x=Genre, y=postopengross),draw_quantiles = c(0.25,0.5,0.75))+theme(legend.position = "bottom",axis.text.x = element_text(angle=90,hjust=1))+xlab("Genre")+ylab("Total Gross after the Opening Weekend")+geom_jitter(aes(x=Genre, y=postopengross,color=Imdb ),shape=16,size=1)+scale_color_gradient(low="red",high = "green")
+                                                                                                                                                                
+                                                                                                                                                                                                                                                 
+
+```
+
+
+```{r}
+#meta imdb corr
+gplot2+geom_point(aes(x=Imdb,y=Meta,color=log(Imdbvotes)))+geom_smooth(aes(x=Imdb,y=Meta),method="loess",se=FALSE,col="blue")+ylab("Metacritic")+scale_color_gradient(low="red",high = "green")+labs(color="Log of Imdb Votes")
+
+
+#theatres corr
+gplot2+geom_point(aes(x=NumOpenTheatres,y=NumTotalTheatres,color=log(Nom)))+scale_color_gradient(low="black",high = "gold")+xlab("Number of Theatres at the Opening Weekend")+ylab("Total Number of Theatres")+labs(color="Log of Nominations")
+
+gplot2+geom_point(aes(x=jitter(NumOpenTheatres),y=jitter(NumTotalTheatres),color=Season))+xlab("Number of Theatres at the Opening Weekend")+ylab("Total Number of Theatres")
+```
+
+
+
+```{r}
+gplot2+geom_point(aes(x=Meta,y=log(Opening.weekend),color=Seq.Ori))+geom_smooth(aes(x=Meta,y=log(Opening.weekend)),method="loess",se=FALSE,col="red")+ylab("Opening Weekend Gross")
+
+gplot2+geom_point(aes(x=MetaT,y=log(Opening.weekend),color=Seq.Ori))+geom_smooth(aes(x=MetaT,y=log(Opening.weekend)),method="loess",se=FALSE,col="red")+ylab("Log Transformation of the Opening Weekend Gross")
+
+gplot2+geom_point(aes(x=Imdb,y=log(postopengross),color=Seq.Ori))+geom_smooth(aes(x=Imdb,y=log(postopengross)),method="loess",se=FALSE,col="red")+ylab("Opening Weekend Gross")
+
+gplot2+geom_point(aes(x=ImdbT,y=log(Opening.weekend),color=Seq.Ori))+geom_smooth(aes(x=ImdbT,y=log(postopengross)),method="loess",se=FALSE,col="red")+ylab("Log Transformation of the Opening Weekend Gross")
+
+```
+
+
+lasso go
+
+```{r}
+Film1s<-Film1[,-c(1,3,4,5,13,14,15,16,17,18,19,20,21)]
+X=model.matrix(~., Film1s)[,-1]
+#cv1<-cv.glmnet(X,log(Film1$Opening.weekend))
+glmn1l.1<-glmnet(X,log(Film1$Opening.weekend),lambda = l )
+co1=coef(glmn1l.1)
+co1
+```
+
+```{r}
+Film1s<-Film2[,-c(1,3,4,5,13,14,15,16,17,18,19,20,21)]
+X=model.matrix(~., Film1s)[,-1]
+#cv2<-cv.glmnet(X,log(Film1$Opening.weekend))$lambda.min
+glmn1l.1<-glmnet(X,log(Film1$Opening.weekend),lambda = l )
+co2=coef(glmn1l.1)
+co2
+```
+
+```{r}
+Film1s<-Film3[,-c(1,3,4,5,13,14,15,16,17,18,19,20,21)]
+X=model.matrix(~., Film1s)[,-1]
+#cv3<-cv.glmnet(X,log(Film1$Opening.weekend))$lambda.min
+glmn1l.1<-glmnet(X,log(Film1$Opening.weekend),lambda = l )
+co3=coef(glmn1l.1)
+co3
+```
+
+```{r}
+Film1s<-Film4[,-c(1,3,4,5,13,14,15,16,17,18,19,20,21)]
+X=model.matrix(~., Film1s)[,-1]
+#cv4<-cv.glmnet(X,log(Film1$Opening.weekend))$lambda.min
+glmn1l.1<-glmnet(X,log(Film1$Opening.weekend),lambda = l )
+co4=coef(glmn1l.1)
+co4
+```
+
+```{r}
+Film1s<-Film5[,-c(1,3,4,5,13,14,15,16,17,18,19,20,21)]
+X=model.matrix(~., Film1s)[,-1]
+#cv5<-cv.glmnet(X,log(Film1$Opening.weekend))$lambda.min
+glmn1l.1<-glmnet(X,log(Film1$Opening.weekend),lambda = l )
+co5=coef(glmn1l.1)
+co5
+```
+
+```{r}
+
+co.min=rep(0,35)
+
+for (i in 1:35)
+{
+  co.min[i]=min(co1[i],co2[i],co3[i],co4[i],co5[i])
+}
+co.min
+```
+
+```{r}
+
+co.max=rep(0,35)
+
+for (i in 1:35)
+{
+  co.max[i]=max(co1[i],co2[i],co3[i],co4[i],co5[i])
+}
+co.max
+```
+
+```{r}
+pr=rep(0,35)
+for(i in 1:35)
+{
+  pr[i]=(co.max[i]-co.min[i])/mean(c(co.max[i],co.min[i]))
+}
+pr*100
+```
+
+
+lasso gt
+
+
+```{r}
+Film1s2<-Film1[-912,-c(1,3,13,14,15,16,17,18,19,20,21)]
+
+X2=model.matrix(~., Film1s2)[,-1]
+
+cv1<-cv.glmnet(X2,log(Film1$postopengross[-912]))$lambda.min
+
+glmn2l.1<-glmnet(X2,log(Film1$postopengross[-912]),lambda = cv1 )
+c1=coef(glmn2l.1)
+c1
+```
+
+```{r}
+Film1s2<-Film2[-912,-c(1,3,13,14,15,16,17,18,19,20,21)]
+
+X2=model.matrix(~., Film1s2)[,-1]
+
+#cv.glmn2l<-cv.glmnet(X2,log(Film1$postopengross[-912]))
+
+glmn2l.1<-glmnet(X2,log(Film1$postopengross[-912]),lambda = cv1 )
+c2=coef(glmn2l.1)
+c2
+```
+
+```{r}
+Film1s2<-Film3[-912,-c(1,3,13,14,15,16,17,18,19,20,21)]
+
+X2=model.matrix(~., Film1s2)[,-1]
+
+#cv.glmn2l<-cv.glmnet(X2,log(Film1$postopengross[-912]))
+
+glmn2l.1<-glmnet(X2,log(Film1$postopengross[-912]),lambda = cv1 )
+c3=coef(glmn2l.1)
+c3
+```
+
+```{r}
+Film1s2<-Film4[-912,-c(1,3,13,14,15,16,17,18,19,20,21)]
+
+X2=model.matrix(~., Film1s2)[,-1]
+
+#cv.glmn2l<-cv.glmnet(X2,log(Film1$postopengross[-912]))
+
+glmn2l.1<-glmnet(X2,log(Film1$postopengross[-912]),lambda = cv1 )
+c4=coef(glmn2l.1)
+c4
+```
+
+```{r}
+Film1s2<-Film5[-912,-c(1,3,13,14,15,16,17,18,19,20,21)]
+
+X2=model.matrix(~., Film1s2)[,-1]
+
+#cv.glmn2l<-cv.glmnet(X2,log(Film1$postopengross[-912]))
+
+glmn2l.1<-glmnet(X2,log(Film1$postopengross[-912]),lambda = cv1 )
+c5=coef(glmn2l.1)
+c5
+```
+
+```{r}
+
+co.min2=rep(0,37)
+
+for (i in 1:37)
+{
+  co.min2[i]=min(c1[i],c2[i],c3[i],c4[i],c5[i])
+}
+co.min2
+```
+
+```{r}
+
+co.max2=rep(0,37)
+
+for (i in 1:37)
+{
+  co.max2[i]=max(c1[i],c2[i],c3[i],c4[i],c5[i])
+}
+co.max2
+```
+
+```{r}
+pr2=rep(0,37)
+for(i in 1:37)
+{
+  pr[i]=(co.max2[i]-co.min2[i])/mean(c(co.max2[i],co.min2[i]))
+}
+pr*100
+```
+
+
+
+```{r}
+summary(glm(formula = log(postopengross) ~ Studio + NumTotalTheatres + Year + Season + Budget + Genre + ImdbT, 
+    family = gaussian, data = Film1, subset = -912))
+
+```
+

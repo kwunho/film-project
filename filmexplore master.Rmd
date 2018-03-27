@@ -1,0 +1,789 @@
+---
+title: "Filmexplore"
+author: "mike"
+date: "26 February 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+
+catorgoical vars for total and weekend gross
+```{r}
+
+fvars<-Film1[,c(2,10:12)]
+summary(fvars)
+studiotab=table(Film$Studio)
+
+genretab=table(Film$Genre)
+ratingtab=table(Film$Rating)
+seq.oritable=table(Film$Seq.Ori)
+
+barplot(studiotab)
+barplot(genretab)
+barplot(ratingtab)
+barplot(seq.oritable)
+
+mosaicplot(xtabs(~Film$Genre+Film$Rating))
+Film1$Genre[which(Film1$Rating=="G")]
+
+boxplot(Film1$Awd~Film1$Season)
+
+boxplot(Film1$Nom~Film1$Season)
+```
+
+
+NAs
+
+
+```{r}
+#145,845
+#189,398,758,885
+load("FilmData.Rda")
+
+Film$Meta[c(145,189,398,758,845,885)]=NA
+
+save(Film,file="Film.Rda")
+library(Hmisc)
+
+
+metasubs=aregImpute(as.formula(paste('~',paste(names(Film)[-1],collapse = "+"))),data=Film)
+subbox<-metasubs$imputed$Meta
+save(subbox,file="subbox.Rda")
+load("Filmomit.Rda")
+
+plot(Film.omit$Imdb,Film.omit$Meta)
+matpoints(Film$Imdb[c(145,189,398,758,845,885)],metasubs$imputed$Meta)
+
+#building 5 data frames
+Film1<-Film
+Film2<-Film
+Film3<-Film
+Film4<-Film
+Film5<-Film
+
+Film1$Meta[c(145,189,398,758,845,885)]<-metasubs$imputed$Meta[,1]
+Film2$Meta[c(145,189,398,758,845,885)]<-metasubs$imputed$Meta[,2]
+Film3$Meta[c(145,189,398,758,845,885)]<-metasubs$imputed$Meta[,3]
+Film4$Meta[c(145,189,398,758,845,885)]<-metasubs$imputed$Meta[,4]
+Film5$Meta[c(145,189,398,758,845,885)]<-metasubs$imputed$Meta[,5]
+
+save(Film1,file="Film1.Rda")
+save(Film2,file="Film2.Rda")
+save(Film3,file="Film3.Rda")
+save(Film4,file="Film4.Rda")
+save(Film5,file="Film5.Rda")
+
+
+load("Film1.Rda")
+
+library(ggplot2)
+gplot1=ggplot(Film1)
+gplot2=ggplot(Film2)
+
+#meta imdb corr
+gplot1+geom_point(aes(x=Imdb,y=Meta,color=log(Imdbvotes)))+geom_smooth(aes(x=Imdb,y=Meta),method="loess",se=FALSE,col="red")
+
+
+#theatres corr
+gplot1+geom_point(aes(x=NumOpenTheatres,y=NumTotalTheatres,color=log(Nom)))
+gplot1+geom_point(aes(x=jitter(NumOpenTheatres),y=jitter(NumTotalTheatres),color=Season))
+```
+
+ggplot
+
+```{r}
+
+library(ggplot2)
+gplot1=ggplot(Film1)
+gplot2=ggplot(Film1)
+```
+
+```{r}
+cvars<-Film1[,c(3:6,9,13:17)]
+x.cor=round(cor(cvars),2)
+#pairs(cvars)
+
+#meta imdb corr
+x.cor["Imdb","Meta"]
+gplot2+geom_point(aes(x=Imdb,y=Meta,color=log(Budget)))+geom_smooth(aes(x=Imdb,y=Meta),method="loess",se=FALSE,col="red")
+
+
+#theatres corr
+x.cor["NumOpenTheatres","NumTotalTheatres"]
+gplot2+geom_point(aes(x=NumOpenTheatres,y=NumTotalTheatres,color=Awd))
+
+
+#nom awd corr
+x.cor["Nom","Awd"]
+gplot2+geom_point(aes(x=Nom,y=Awd,color=Meta))+geom_smooth(aes(x=Nom,y=Awd),method="loess",se=FALSE,col="red")
+
+```
+
+transformations
+```{r}
+library(boot)
+Film1$MetaT<-logit(Film1$Meta/100)
+Film1$ImdbT<-logit(Film1$Imdb/10)
+
+
+```
+
+
+response=opening weekend
+formula making
+```{r}
+#nom,meta
+form1=as.formula(paste("log(Opening.weekend)~",paste(names(Film1)[c(2,6,7,8,9,10,11,12,22)],collapse = "+")))
+
+#nom, imdb
+form2=as.formula(paste("log(Opening.weekend)~",paste(names(Film1)[c(2,6,7,8,9,10,11,12,23)],collapse = "+")))
+
+
+```
+
+
+response=postgross
+formula making
+```{r}
+#nom,meta
+form1pg=as.formula(paste("log(postopengross)~",paste(names(Film1)[c(2,4,5,7,8,9,10,11,12,22)],collapse = "+")))
+
+#nom, imdb
+form2pg=as.formula(paste("log(postopengross)~",paste(names(Film1)[c(2,4,7,8,9,10,11,12,23)],collapse = "+")))
+
+
+
+```
+
+lm weekend gross
+```{r}
+
+#aic1=rep(0,2)
+
+lm1=glm(form1,gaussian,Film1)
+lm1.s=step(lm1)
+summary(lm1.s)
+
+#aic1[1]=AIC(lm1.s)
+
+
+```
+
+```{r}
+lm1=glm(form2,gaussian,Film1)
+lm1.s.2=step(lm1)
+summary(lm1.s.2)
+
+aic1[2]=AIC(lm1.s.2)
+```
+
+
+
+
+```{r}
+aic1 #form1/lm1.s is best
+plot(lm1.s)
+cv.glm(Film1,lm1.s)$delta
+
+```
+
+improve
+```{r}
+lm1i=glm(formula = log(Opening.weekend) ~ Studio + NumOpenTheatres + 
+    Year + Season + Budget + Seq.Ori + MetaT, family = gaussian, 
+    data = Film1)
+
+cv.glm(Film1,lm1i)$delta
+plot(lm1i)
+summary(lm1i)
+```
+
+
+
+glm weekend gross
+
+```{r}
+aic2=rep(0,2)
+
+glm1=glm(form1,family = Gamma(identity),data=Film1)
+glm1.s=step(glm1)
+summary(glm1.s)
+
+aic2[1]=AIC(glm1.s)
+
+```
+
+```{r}
+
+glm1=glm(form2,family = Gamma(identity),data=Film1)
+glm1.s.2=step(glm1)
+summary(glm1.s.2)
+
+aic2[2]=AIC(glm1.s.2)
+
+```
+
+
+
+```{r}
+aic2#form 1, glm1.s is best
+plot(glm1.s)
+cv.glm(Film1,glm1.s)$delta
+
+
+```
+
+
+```{r}
+glm1i=glm(formula = log(Opening.weekend) ~ Studio + NumOpenTheatres + 
+    Year + Season + Budget + Seq.Ori + MetaT, family = Gamma(identity), 
+    data = Film1)
+
+cv.glm(Film1,glm1i)$delta
+plot(glm1i)
+summary(glm1i)
+```
+
+lm post gross
+
+```{r}
+which(Film1$postopengross==0)#912
+aic3=rep(0,2)
+
+lm2=glm(form1pg,gaussian,Film1,subset=-912)
+lm2.s=step(lm2)
+summary(lm2.s)
+aic3[1]=AIC(lm2.s)
+
+```
+
+```{r}
+lm2=glm(form2pg,gaussian,Film1,subset=-912)
+lm2.s.2=step(lm2)
+summary(lm2.s.2)
+#aic3[2]=AIC(lm2.s.2)
+```
+
+
+
+```{r}
+aic3 #form2 or lm2.s.2 is best
+plot(lm2.s.2)
+cv.glm(Film1[-912,],lm2.s.2)$delta
+
+```
+
+improve
+```{r}
+lm2i=glm(formula = log(postopengross) ~ Studio + NumTotalTheatres  + Year + Opening.weekend + I(Budget^2) + Season + Budget + Genre + ImdbT, family = gaussian, data = Film1, subset = -912)
+
+plot(lm2i)
+summary(lm2i)
+```
+
+
+
+glm postgross
+```{r}
+aic4=rep(0,2)
+
+glm2=glm(form1pg,family = Gamma(identity),data=Film1,subset = -912)
+glm2.s=step(glm2)
+summary(glm2.s)
+aic4[1]=AIC(glm2.s)
+```
+
+```{r}
+
+glm2=glm(form2pg,family = Gamma(identity),data=Film1,subset = -912)
+glm2.s.2=step(glm2)
+summary(glm2.s.2)
+aic4[2]=AIC(glm2.s.2)
+```
+
+
+
+```{r}
+aic4#form2 is best, glm2.s.2
+plot(glm2.s.2)
+cv.glm(Film1[-912,],glm2.s.2)$delta
+```
+
+ weekend gross per theatre
+
+```{r}
+
+#nom,meta
+form1pt=as.formula(paste("log(Opening.weekend)~offset(log(NumOpenTheatres))+",paste(names(Film1)[c(2,7,8,9,10,11,12,22)],collapse = "+")))
+
+#nom, imdb
+form2pt=as.formula(paste("log(Opening.weekend)~offset(log(NumOpenTheatres))+",paste(names(Film1)[c(2,7,8,9,10,11,12,23)],collapse = "+")))
+
+
+
+```
+
+lm per theatre 
+
+```{r}
+aic5=rep(0,2)
+
+lm3=glm(form1pt,gaussian,Film1)
+lm3.s=step(lm3)
+summary(lm3.s)
+aic5[1]=AIC(lm3.s)
+```
+
+```{r}
+lm3=glm(form2pt,gaussian,Film1)
+lm3.s.2=step(lm3)
+summary(lm3.s.2)
+aic5[2]=AIC(lm3.s.2)
+```
+
+
+
+```{r}
+aic5 #form1 is best lm3.s
+plot(lm3.s)
+cv.glm(Film1,lm3.s)$delta
+
+```
+
+
+improve
+
+```{r}
+lm3i=glm(formula = log(Opening.weekend) ~ Studio + Season + Budget + Seq.Ori + MetaT + offset(log(NumOpenTheatres)), 
+    family = gaussian, data = Film1)
+summary(lm3i)
+plot(lm3i)
+cv.glm(Film1,lm3i)
+```
+
+
+
+glm
+
+```{r}
+aic6=rep(0,2)
+
+glm3=glm(form1pt,Gamma(identity),data=Film1)
+glm3.s=step(glm3)
+summary(glm3.s)
+aic6[1]=AIC(glm3.s)
+```
+
+```{r}
+glm3=glm(form2pt,Gamma(identity),data=Film1)
+glm3.s.2=step(glm3)
+summary(glm3.s.2)
+aic6[2]=AIC(glm3.s.2)
+```
+
+
+
+```{r}
+aic6 #form1
+plot(glm3.s)
+cv.glm(Film1,glm3.s)$delta
+```
+
+
+improve
+
+```{r}
+glm3i=glm(glm3.s$formula,Gamma(identity),data=Film1,subset=-1002)
+summary(glm3i)
+
+glm3i2=glm(log(Opening.weekend) ~ Studio + Season + Budget + Seq.Ori + 
+    MetaT + offset(log(NumOpenTheatres)),Gamma(identity),data=Film1,subset=-1002)
+summary(glm3i2)
+plot(glm3i2)
+
+cv.glm(Film1[-1002,],glm3i2)$delta
+```
+
+
+post gross per theatre
+
+```{r}
+
+#nom,meta
+form1pgpt=as.formula(paste("log(postopengross)~offset(log(NumTotalTheatres))+",paste(names(Film1)[c(2,5,7,8,9,10,11,12,22)],collapse = "+")))
+
+#nom, imdb
+form2pgpt=as.formula(paste("log(postopengross)~offset(log(NumTotalTheatres))+",paste(names(Film1)[c(2,5,7,8,9,10,11,12,23)],collapse = "+")))
+
+
+```
+
+lm post gross pt
+
+```{r}
+aic7=rep(0,2)
+lm4=glm(form1pgpt,gaussian,Film1,subset=-912)
+lm4.s=step(lm4)
+summary(lm4.s)
+aic7[1]=AIC(lm4.s)
+
+```
+
+```{r}
+lm4=glm(form2pgpt,gaussian,Film1,subset=-912)
+lm4.s.2=step(lm4)
+summary(lm4.s.2)
+aic7[2]=AIC(lm4.s.2)
+
+```
+
+
+
+```{r}
+aic7 #form2
+plot(lm4.s.2)
+cv.glm(Film1[-912,],lm4.s.4)$delta
+```
+
+improve
+
+```{r}
+lm4i=glm(log(postopengross) ~ Studio + Opening.weekend +owi + Year + Season + Genre + ImdbT + offset(log(NumTotalTheatres)),family=gaussian, Film1,subset=-912)
+plot(lm4i)
+summary(lm4i)
+
+```
+
+```{r}
+ex=which(predict(lm4.s.2)>19.5)
+ex=c(1,23 ,24 ,25  ,43  ,44,  45,  46, 127, 148, 149, 150, 151, 211, 277, 279, 280, 339, 401, 402, 404, 405, 461, 463, 502, 525, 526, 589, 590, 591, 651, 652, 717, 760, 783, 784, 787, 847, 913, 915, 916, 917, 979, 980)
+Film1$Film[ex]
+Film1$Seq.Ori[ex]
+Film1$Budget[ex]
+hist(Film1$Opening.weekend[ex])
+hist(Film1$Opening.weekend[-ex])
+Film1$NumTotalTheatres[ex]
+Film1$Year[ex]
+Film1$Season[ex]
+Film1$owi=cut(Film1$Opening.weekend,c(0,75000000,250000000))
+```
+
+
+
+glm postgross pt
+```{r}
+aic8=rep(0,2)
+glm4=glm(form1pgpt,family = Gamma(identity),data=Film1,subset = -912)
+glm4.s=step(glm4)
+summary(glm4.s)
+aic8[1]=AIC(glm4.s)
+```
+
+```{r}
+
+glm4=glm(form2pgpt,family = Gamma(identity),data=Film1,subset = -912)
+glm4.s.2=step(glm4)
+summary(glm4.s.2)
+aic8[2]=AIC(glm4.s.2)
+```
+
+
+```{r}
+aic8 #form2 is best
+plot(glm4.s.2)
+
+cv.glm(Film1[-912,],glm4.s.2)$delta
+
+```
+
+open theatre resdual plots
+
+
+LASSO
+```{r}
+
+library(glmnet)
+
+Film1s<-Film1[,-c(1,3,4,5,13,14,15,16,17,18,19,20,21)]
+
+X=model.matrix(~., Film1s)[,-1]
+
+cv.glmn1l<-cv.glmnet(X,log(Film1$Opening.weekend))
+
+glmn1l.1<-glmnet(X,log(Film1$Opening.weekend),lambda = 0.002308 )
+coef(glmn1l.1)
+
+res1=log(Film1$Opening.weekend)-predict(glmn1l.1,X)
+p1=predict(glmn1l.1,X)
+qqnorm(res)
+qqline(res)
+
+plot(predict(glmn1l.1,X),res)
+lines(lowess(predict(glmn1l.1,X),res), col="red")
+
+glmn1l.1s<-glmnet(X,log(Film1$Opening.weekend))
+plot(glmn1l.1s,xvar="lambda")
+abline(v=log(cv.glmn1l$lambda.min))
+
+cv.glmn1l$cvm[which(min(cv.glmn1l$lambda))]
+
+
+y=quantile(res1,c(0.25,0.75))
+x=qnorm(c(0.25,0.75))
+slope=diff(y)/diff(x)
+int=y[1]-slope*x[1]
+
+g=ggplot(as.data.frame(cbind(p1,res1)))
+g+geom_point(aes(x=p1,y=res1))+geom_smooth(aes(x=p1,y=res1),method="loess",se=FALSE,col="blue")+xlab("Predicted values")+ylab("Residuals")
+g+geom_abline(slope=slope,intercept = int,color="grey",linetype=2)+stat_qq(aes(sample=res1))
+```
+
+```{r}
+
+Xi=model.matrix(~.^2, Film1s)[,-1]
+cv.glmn1li<-cv.glmnet(Xi,log(Film1$Opening.weekend))
+
+glmn1l.1i<-glmnet(Xi,log(Film1$Opening.weekend),lambda = 0.1766 )
+coef(glmn1l.1i)
+
+res1=log(Film1$Opening.weekend)-predict(glmn1l.1i,Xi)
+p1=predict(glmn1l.1i,Xi)
+qqnorm(res)
+qqline(res)
+
+plot(predict(glmn1l.1i,Xi),res1)
+lines(lowess(predict(glmn1l.1i,Xi),res1), col="red")
+#plot(glmn1l.1i)
+#plot(glmn1l.1i,xvar = "lambda")
+#plot(glmn1l.1i,xvar = "dev")
+#plot(cv.glmn1li)
+
+y=quantile(res1,c(0.25,0.75))
+x=qnorm(c(0.25,0.75))
+slope=diff(y)/diff(x)
+int=y[1]-slope*x[1]
+
+g=ggplot(as.data.frame(cbind(p1,res1)))
+g+geom_point(aes(x=p1,y=res1))+geom_smooth(aes(x=p1,y=res1),method="loess",se=FALSE,col="blue")+xlab("Predicted values")+ylab("Residuals")
+g+geom_abline(slope=slope,intercept = int,color="grey",linetype=2)+stat_qq(aes(sample=res1))
+```
+
+```{r}
+Film1s2<-Film1[-912,-c(1,3,13,14,15,16,17,18,19,20,21)]
+
+X2=model.matrix(~., Film1s2)[,-1]
+
+cv.glmn2l<-cv.glmnet(X2,log(Film1$postopengross[-912]))
+
+glmn2l.1<-glmnet(X2,log(Film1$postopengross[-912]),lambda = 0.001397 )
+coef(glmn2l.1)
+
+res1=log(Film1$postopengross[-912])-predict(glmn2l.1,X2)
+p1=predict(glmn2l.1,X2)
+
+qqnorm(res)
+qqline(res)
+plot(predict(glmn2l.1,X2),res)
+lines(lowess(predict(glmn2l.1,X2),res), col="red")
+
+
+
+y=quantile(res1,c(0.25,0.75))
+x=qnorm(c(0.25,0.75))
+slope=diff(y)/diff(x)
+int=y[1]-slope*x[1]
+
+g=ggplot(as.data.frame(cbind(p1,res1)))
+g+geom_point(aes(x=p1,y=res1))+geom_smooth(aes(x=p1,y=res1),method="loess",se=FALSE,col="blue")+xlab("Predicted values")+ylab("Residuals")
+g+geom_abline(slope=slope,intercept = int,color="grey",linetype=2)+stat_qq(aes(sample=res1))
+```
+
+```{r}
+Film1s2<-Film1[-912,-c(1,3,13,14,15,16,17,18,19,20,21)]
+
+X2i=model.matrix(~.^2, Film1s2)[,-1]
+
+cv.glmn2li<-cv.glmnet(X2i,log(Film1$postopengross[-912]))
+
+glmn2l.1i<-glmnet(X2i,log(Film1$postopengross[-912]),lambda = 0.002026 )
+coef(glmn2l.1i)
+
+res1=log(Film1$postopengross[-912])-predict(glmn2l.1i,X2i)
+p1=predict(glmn2l.1i,X2i)
+
+qqnorm(res)
+qqline(res)
+plot(predict(glmn2l.1i,X2i),res)
+lines(lowess(predict(glmn2l.1i,X2i),res), col="red")
+
+
+y=quantile(res1,c(0.25,0.75))
+x=qnorm(c(0.25,0.75))
+slope=diff(y)/diff(x)
+int=y[1]-slope*x[1]
+
+g=ggplot(as.data.frame(cbind(p1,res1)))
+g+geom_point(aes(x=p1,y=res1))+geom_smooth(aes(x=p1,y=res1),method="loess",se=FALSE,col="blue")+xlab("Predicted values")+ylab("Residuals")
+g+geom_abline(slope=slope,intercept = int,color="grey",linetype=2)+stat_qq(aes(sample=res1))
+
+
+```
+
+
+Regression Trees
+
+
+
+```{r}
+library(rpart)
+library(randomForest)
+library(partykit)
+```
+
+```{r}
+form=as.formula(paste("log(Opening.weekend)~",paste(names(Film1)[c(2,6,7,8,9,10,11,12,15,16)],collapse = "+")))
+
+rt1=rpart(form,Film1,method = "anova")
+summary(rt1)
+
+p1=predict(rt1)
+
+res1=log(Film1$Opening.weekend)-p1
+plot(jitter(p),res)
+lines(lowess(p,res), col="red")
+
+qqnorm(res)
+qqline(res)
+
+rt1.p=as.party(rt1)
+plot(rt1.p)
+
+
+y=quantile(res1,c(0.25,0.75))
+x=qnorm(c(0.25,0.75))
+slope=diff(y)/diff(x)
+int=y[1]-slope*x[1]
+
+g=ggplot(as.data.frame(cbind(p1,res1)))
+g+geom_point(aes(x=jitter(p1),y=res1))+geom_smooth(aes(x=p1,y=res1),method="loess",se=FALSE,col="blue")+xlab("Predicted values")+ylab("Residuals")
+g+geom_abline(slope=slope,intercept = int,color="grey",linetype=2)+stat_qq(aes(sample=res1))
+```
+
+
+```{r}
+library(caret)
+tc=trainControl(method="cv",number = 10)
+cp=0.01
+model=train(form,data=Film1,trControl=tc,method="rpart",tuneGrid=data.frame(cp))
+
+```
+
+
+
+
+```{r}
+formp=as.formula(paste("log(postopengross)~",paste(names(Film1)[c(2,4,5,6,7,8,9,10,11,12,15,16)],collapse = "+")))
+
+rt2=rpart(formp,Film1,subset = -912)
+summary(rt2)
+p1=predict(rt2)
+
+res1=log(Film1$postopengross)[-912]-p1
+plot(jitter(p),res)
+lines(lowess(p,res), col="red")
+qqnorm(res)
+qqline(res)
+
+rt2.p=as.party(rt2)
+plot(rt2.p)
+
+y=quantile(res1,c(0.25,0.75))
+x=qnorm(c(0.25,0.75))
+slope=diff(y)/diff(x)
+int=y[1]-slope*x[1]
+
+g=ggplot(as.data.frame(cbind(p1,res1)))
+g+geom_point(aes(x=jitter(p1),y=res1))+geom_smooth(aes(x=p1,y=res1),method="loess",se=FALSE,col="blue")+xlab("Predicted values")+ylab("Residuals")
+g+geom_abline(slope=slope,intercept = int,color="grey",linetype=2)+stat_qq(aes(sample=res1))
+```
+
+```{r}
+cp=0.01
+model=train(formp,data=Film1[-912,],trControl=tc,method="rpart",tuneGrid=data.frame(cp))
+
+model=train(formp,data=Film1[-912,],trControl=tc,method="rpart")
+```
+
+
+Random Forest
+
+```{r}
+library(randomForest)
+
+rf=randomForest(form,Film1,importance=T)
+
+varImpPlot(rf)
+res1=log(Film1$Opening.weekend)-rf$predicted
+p1=rf$predicted
+plot(rf$predicted,res)
+lines(lowess(rf$predicted,res), col="red")
+qqnorm(res)
+qqline(res)
+importance(rf)
+
+y=quantile(res1,c(0.25,0.75))
+x=qnorm(c(0.25,0.75))
+slope=diff(y)/diff(x)
+int=y[1]-slope*x[1]
+
+g=ggplot(as.data.frame(cbind(p1,res1)))
+g+geom_point(aes(x=jitter(p1),y=res1))+geom_smooth(aes(x=p1,y=res1),method="loess",se=FALSE,col="blue")+xlab("Predicted values")+ylab("Residuals")
+g+geom_abline(slope=slope,intercept = int,color="grey",linetype=2)+stat_qq(aes(sample=res1))
+```
+
+
+```{r}
+mtry=3
+model=train(Film1[,c(2,6,7,8,9,10,11,12,15,16)],log(Film1$Opening.weekend),trControl=tc,method="rf",tuneGrid=data.frame(mtry))
+#tuneGrid=data.frame(mtry)
+```
+
+```{r}
+rf2=randomForest(formp,Film1,subset = -912,importance=T)
+
+varImpPlot(rf2)
+res1=log(Film1$postopengross)[-912]-rf2$predicted
+p1=rf2$predicted
+plot(rf2$predicted,res)
+lines(lowess(rf2$predicted,res), col="red")
+qqnorm(res)
+qqline(res)
+importance(rf2)
+
+
+y=quantile(res1,c(0.25,0.75))
+x=qnorm(c(0.25,0.75))
+slope=diff(y)/diff(x)
+int=y[1]-slope*x[1]
+
+g=ggplot(as.data.frame(cbind(p1,res1)))
+g+geom_point(aes(x=jitter(p1),y=res1))+geom_smooth(aes(x=p1,y=res1),method="loess",se=FALSE,col="blue")+xlab("Predicted values")+ylab("Residuals")
+g+geom_abline(slope=slope,intercept = int,color="grey",linetype=2)+stat_qq(aes(sample=res1))
+
+```
+
+```{r}
+mtry=4
+model2=train(formp,data=Film1[-912,],trControl=tc,method="rf",tuneGrid=data.frame(mtry))
+```
+
+```{r}
+res=log(Film1$postopengross)[-912]-model$finalModel$predicted
+plot(model$finalModel$predicted,res)
+```
+
